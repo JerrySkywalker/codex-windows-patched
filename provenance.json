@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "upstreamRepository": "https://github.com/openai/codex",
+  "upstreamVersion": "0.156.0",
+  "upstreamSha": "fe74a774532af67b5a4a3dec03ce9469e17f89af",
+  "qualifiedSourceSha": "46679a3db8622786a1a9dfd1bbe09494c55af588",
+  "qualifiedSourceTree": "2a9dacb7e34dd719730946eaefcf755c47aae56e",
+  "publicReleaseSha": "44093ea5c1d33f008f6035ec1a519e1247f04295",
+  "publicReleaseTree": "2a9dacb7e34dd719730946eaefcf755c47aae56e",
+  "releaseTag": "v0.156.0-wbp-r1",
+  "historyPolicy": "Public commits use neutral metadata and preserve the qualified source trees; the original qualification commits remain unpublished."
+}

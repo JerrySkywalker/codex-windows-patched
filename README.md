@@ -1,3 +1,12 @@
+# Codex Windows patched
+
+This project is a downstream compatibility fork of [OpenAI Codex](https://github.com/openai/codex). It tracks upstream Codex and focuses on Windows compatibility behavior, including background process presentation fixes. It is not an official OpenAI product. OpenAI does not endorse this fork.
+
+The `v0.156.0-wbp-r1` public release preserves the exact source tree of the internally qualified Windows patch on top of upstream `rust-v0.156.0`. Its commits use neutral public metadata. [provenance.json](provenance.json) maps the upstream SHA, internal qualified source SHA, and public release SHA. The original qualification commits and their metadata are retained outside this public repository.
+
+The upstream directory structure, Apache-2.0 LICENSE, and NOTICE are retained. Source changes are under `codex-rs`; this repository contains no packaged executables. For upstream installation instructions and documentation, use [the official Codex repository](https://github.com/openai/codex). The original upstream README follows.
+
+---
 <p align="center"><strong>Codex CLI</strong> is a coding agent from OpenAI that runs locally on your computer.
 <p align="center">
   <img src="https://github.com/openai/codex/blob/main/.github/codex-cli-splash.png" alt="Codex CLI splash" width="80%" />
