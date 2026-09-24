@@ -30,7 +30,7 @@ struct WindowsShell {
 }
 
 fn find_powershell() -> Option<String> {
-    ["pwsh.exe", "powershell.exe"]
+    ["powershell.exe", "pwsh.exe"]
         .into_iter()
         .find_map(|candidate| {
             std::process::Command::new(candidate)
