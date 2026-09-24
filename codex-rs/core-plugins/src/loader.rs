@@ -1920,3 +1920,7 @@ fn run_git_output(
 #[cfg(test)]
 #[path = "loader_tests.rs"]
 mod tests;
+
+#[cfg(all(test, windows))]
+#[path = "loader_windows_tests.rs"]
+mod windows_tests;

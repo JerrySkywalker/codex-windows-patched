@@ -141,6 +141,11 @@ pub fn default_worktree_base(cwd: &Path) -> Result<String> {
 
 fn base_git_command(cwd: &Path) -> Command {
     let mut command = Command::new("git");
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
     // Git wrappers export repository-local state to their children. Select this
     // repository from cwd, and install only our own per-command config below.
     for name in [

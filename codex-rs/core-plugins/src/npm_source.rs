@@ -99,6 +99,12 @@ fn pack_npm_package(
     }
     command.arg("--").arg(package_spec);
 
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+
     let output = command
         .output()
         .map_err(|err| format!("failed to run npm pack: {err}"))?;

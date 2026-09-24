@@ -45,6 +45,9 @@ use codex_protocol::protocol::HookOutputEntryKind;
 
 const MAX_CONCURRENT_ASYNC_HOOKS: usize = 8;
 
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
 /// Owns command execution and bounded asynchronous work for one session.
 #[derive(Clone)]
 pub(crate) struct CommandHookRuntime {
@@ -231,14 +234,16 @@ pub(crate) async fn run_command(
     }
 
     #[cfg(windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
+    #[cfg(windows)]
     let mut process_tree_job = JobObject::create().ok();
     #[cfg(windows)]
     let child = match process_tree_job.as_ref() {
-        Some(job) => match job.spawn_contained(&mut command) {
+        Some(job) => match job.spawn_contained_with_flags(&mut command, CREATE_NO_WINDOW) {
             Ok(child) => Ok(child),
             Err(_) => {
                 process_tree_job = None;
-                command.creation_flags(0);
+                command.creation_flags(CREATE_NO_WINDOW);
                 command.spawn()
             }
         },
@@ -358,11 +363,14 @@ impl Drop for ProcessTreeGuard {
             if let Some(job) = self.job.as_ref() {
                 let _ = job.terminate();
             } else {
+                use std::os::windows::process::CommandExt;
+
                 let _ = std::process::Command::new("taskkill")
                     .args(["/PID", &process_id.to_string(), "/T", "/F"])
                     .stdin(Stdio::null())
                     .stdout(Stdio::null())
                     .stderr(Stdio::null())
+                    .creation_flags(CREATE_NO_WINDOW)
                     .spawn();
             }
         }

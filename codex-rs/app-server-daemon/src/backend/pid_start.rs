@@ -98,17 +98,20 @@ impl PidBackend {
         // Older or pinned managed binaries may predate this optional startup flag.
         let managed_app_server =
             matches!(self.command_kind, super::PidCommandKind::AppServer { .. });
+        let mut help_probe = Command::new(&codex_bin);
+        help_probe
+            .args(["app-server", "--managed-daemon", "--help"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .kill_on_drop(true);
+        #[cfg(windows)]
+        help_probe.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
         if managed_app_server
             && matches!(
                 tokio::time::timeout(
                     std::time::Duration::from_secs(5),
-                    Command::new(&codex_bin)
-                        .args(["app-server", "--managed-daemon", "--help"])
-                        .stdin(Stdio::null())
-                        .stdout(Stdio::null())
-                        .stderr(Stdio::null())
-                        .kill_on_drop(true)
-                        .status(),
+                    help_probe.status(),
                 ).await,
                 Ok(Ok(status)) if status.success()
             )

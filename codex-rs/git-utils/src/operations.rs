@@ -139,7 +139,7 @@ where
     }
     command.args(&args_vec);
     scrub_non_inheritable_env_vars(&mut command);
-    let output = command.output()?;
+    let output = crate::git_process::git_output(&mut command)?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
         return Err(GitToolingError::GitCommand {

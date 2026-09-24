@@ -115,6 +115,8 @@ fn doctor_command(executable: &Path, cwd: &Path, codex_home: &Path) -> Command {
         .arg("--feedback")
         .current_dir(codex_home)
         .env("CODEX_HOME", codex_home);
+    #[cfg(windows)]
+    command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
     command
 }
 

@@ -1,4 +1,6 @@
 use codex_utils_absolute_path::AbsolutePathBuf;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use std::path::Path;
 use std::process::Command;
 use tempfile::TempDir;
@@ -38,6 +40,7 @@ impl PluginGitMode {
     /// Automatic remote lookups and initial clones must also select a trusted repository.
     pub(crate) fn command(self, git_binary: &Path) -> Command {
         let mut command = Command::new(git_binary);
+        configure_background_git(&mut command);
         command.args(["-c", codex_git_utils::SAFE_BARE_REPOSITORY_CONFIG]);
         if matches!(self, Self::Automatic) {
             command.env("GIT_OPTIONAL_LOCKS", "0");
@@ -48,6 +51,17 @@ impl PluginGitMode {
         command
     }
 }
+
+pub(crate) fn configure_background_git(command: &mut Command) {
+    #[cfg(windows)]
+    command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    #[cfg(not(windows))]
+    let _ = command;
+}
+
+#[cfg(all(test, windows))]
+#[path = "git_policy_windows_tests.rs"]
+mod windows_tests;
 
 /// Isolates an automatic Git command from repository discovery in the launch project.
 ///

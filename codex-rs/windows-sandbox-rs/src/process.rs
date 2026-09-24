@@ -48,6 +48,10 @@ pub enum ConsoleMode {
     NoWindow,
 }
 
+#[cfg(test)]
+#[path = "process_presentation_tests.rs"]
+mod windows_presentation_tests;
+
 pub fn make_env_block(env: &HashMap<String, String>) -> Vec<u16> {
     let mut items: Vec<(String, String)> =
         env.iter().map(|(k, v)| (k.clone(), v.clone())).collect();

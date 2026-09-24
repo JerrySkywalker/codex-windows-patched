@@ -279,6 +279,8 @@ impl LocalStdioServerLauncher {
             let mut command = Command::new(&resolved_program);
             command.current_dir(&cwd).envs(&envs).args(&args);
             command.process_mode(ProcessMode::NewGroup);
+            #[cfg(windows)]
+            command.windows_background();
             command
         };
         #[cfg(windows)]
@@ -286,7 +288,11 @@ impl LocalStdioServerLauncher {
         #[cfg(not(windows))]
         let command = build_command();
         #[cfg(windows)]
-        let job = match codex_utils_pty::JobObject::create_without_breakaway() {
+        let job = codex_utils_pty::JobObject::create_without_breakaway();
+        #[cfg(all(test, windows))]
+        let job = windows_tests::inject_job_creation_failure(job);
+        #[cfg(windows)]
+        let job = match job {
             Ok(job) => {
                 command.prepare_suspended_spawn(&job);
                 Some(job)
@@ -316,8 +322,11 @@ impl LocalStdioServerLauncher {
         let (transport, stderr, process_id, job) = match job {
             Some(job) => match process_id
                 .ok_or_else(|| io::Error::other("missing suspended MCP server process id"))
-                .and_then(|process_id| job.assign_and_resume_process(process_id))
-            {
+                .and_then(|process_id| {
+                    #[cfg(test)]
+                    let process_id = windows_tests::assignment_process_id(process_id);
+                    job.assign_and_resume_process(process_id)
+                }) {
                 Ok(true) => (transport, stderr, process_id, Some(job)),
                 Ok(false) => (transport, stderr, process_id, None),
                 Err(error) => {
@@ -697,6 +706,10 @@ impl ExecutorStdioServerLauncher {
         }
     }
 }
+
+#[cfg(all(test, windows))]
+#[path = "stdio_server_launcher_windows_tests.rs"]
+mod windows_tests;
 
 #[cfg(test)]
 mod tests {

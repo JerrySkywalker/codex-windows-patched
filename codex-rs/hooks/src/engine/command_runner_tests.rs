@@ -34,7 +34,96 @@ use super::ConfiguredHandler;
 use super::MAX_CONCURRENT_ASYNC_HOOKS;
 use super::build_command;
 use super::run_command;
+
+#[cfg(windows)]
+#[path = "command_runner_windows_tests.rs"]
+mod windows_cleanup;
+
+#[cfg(windows)]
+#[tokio::test]
+async fn hook_cleanup_fallback_functional_terminates_owned_tree() -> anyhow::Result<()> {
+    windows_cleanup::cleanup_fallback_functional().await
+}
 use crate::events::user_prompt_submit::UserPromptSubmitRequest;
+
+#[cfg(windows)]
+#[tokio::test]
+async fn background_hook_preserves_stdio_and_exit_without_a_console() -> anyhow::Result<()> {
+    if std::env::var_os("CODEX_TEST_BACKGROUND_CHILD").is_none() {
+        let output = tokio::process::Command::new(std::env::current_exe()?)
+            .args([
+                "--exact",
+                "engine::command_runner::tests::background_hook_preserves_stdio_and_exit_without_a_console",
+                "--nocapture",
+            ])
+            .env("CODEX_TEST_BACKGROUND_CHILD", "1")
+            .creation_flags(0x0000_0008)
+            .output()
+            .await?;
+        assert!(
+            output.status.success() && String::from_utf8_lossy(&output.stdout).contains("1 passed"),
+            "{output:?}"
+        );
+        return Ok(());
+    }
+    let temp = tempdir()?;
+    let source_path = AbsolutePathBuf::try_from(temp.path().join("hooks.json"))?;
+    let shell = CommandShell {
+        program: std::env::var("CODEX_TEST_HOOK_POWERSHELL")
+            .unwrap_or_else(|_| "powershell.exe".to_owned()),
+        args: ["-NoProfile", "-NonInteractive", "-Command"]
+            .map(str::to_owned)
+            .into(),
+    };
+    let (result_sender, _result_receiver) = async_channel::unbounded();
+    let runtime = CommandHookRuntime::new(
+        shell,
+        Arc::new(std::env::vars_os().collect()),
+        ThreadId::new(),
+        result_sender,
+    );
+    let input = r#"{"hook":"input"}"#;
+    for exit_code in [0, 23] {
+        let command = format!(
+            r#"Add-Type -Name Probe -Namespace CodexHookTest -MemberDefinition '
+            [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+            public static extern System.IntPtr GetConsoleWindow();
+        ';
+        [Console]::Out.Write('console={{0}};stdin={{1}}',
+            [CodexHookTest.Probe]::GetConsoleWindow().ToInt64(), [Console]::In.ReadToEnd());
+        [Console]::Error.Write('hook stderr'); exit {exit_code}"#
+        );
+        let env = HashMap::new();
+        let handler = ConfiguredHandler {
+            builtin: false,
+            event_name: HookEventName::UserPromptSubmit,
+            matcher: None,
+            timeout_sec: 30,
+            status_message: None,
+            additional_context_limit: Default::default(),
+            source_path: source_path.clone().into(),
+            source: HookSource::User,
+            display_order: 0,
+            kind: ConfiguredHandlerKind::Command {
+                command: command.clone(),
+                r#async: false,
+                env: env.clone(),
+            },
+        };
+        let result = run_command(&runtime, &handler, &command, &env, input, temp.path()).await;
+        assert_eq!(
+            (result.exit_code, result.stdout, result.stderr, result.error),
+            (
+                Some(exit_code),
+                format!("console=0;stdin={input}"),
+                "hook stderr".to_owned(),
+                None
+            )
+        );
+    }
+    runtime.shutdown().await;
+    Ok(())
+}
 
 #[cfg(unix)]
 #[tokio::test]

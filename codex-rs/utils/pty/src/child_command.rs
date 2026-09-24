@@ -50,6 +50,8 @@ pub struct Command {
     pub(crate) descriptor_policy: DescriptorPolicy,
     pub(crate) fallback: SpawnFallback,
     pub(crate) stdin: ChildStdin,
+    #[cfg(windows)]
+    windows_background: bool,
     #[cfg(unix)]
     pub(crate) arg0: Option<OsString>,
 }
@@ -69,6 +71,8 @@ impl Command {
             descriptor_policy: DescriptorPolicy::Inherit,
             fallback: SpawnFallback::Compatible,
             stdin: ChildStdin::Piped,
+            #[cfg(windows)]
+            windows_background: false,
             #[cfg(unix)]
             arg0: None,
         }
@@ -123,6 +127,15 @@ impl Command {
         self
     }
 
+    /// Prevent a background console child from presenting a Windows window.
+    #[cfg(windows)]
+    pub fn windows_background(&mut self) -> &mut Self {
+        self.windows_background = true;
+        self.inner
+            .creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
+        self
+    }
+
     #[cfg(unix)]
     pub fn arg0(&mut self, arg0: impl AsRef<OsStr>) -> &mut Self {
         self.inner.arg0(arg0.as_ref());
@@ -133,7 +146,12 @@ impl Command {
     /// Preserve Job Object assignment before the child begins executing on Windows.
     #[cfg(windows)]
     pub fn prepare_suspended_spawn(&mut self, job: &crate::JobObject) {
-        job.prepare_suspended_spawn(&mut self.inner);
+        let flags = if self.windows_background {
+            winapi::um::winbase::CREATE_NO_WINDOW
+        } else {
+            0
+        };
+        job.prepare_suspended_spawn_with_flags(&mut self.inner, flags);
     }
 
     /// Launch with native macOS path handling and the existing compatibility fallback.

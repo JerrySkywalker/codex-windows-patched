@@ -117,6 +117,8 @@ pub(crate) async fn spawn_child_async(request: SpawnChildRequest<'_>) -> std::io
 
     match stdio_policy {
         StdioPolicy::RedirectForShellTool => {
+            #[cfg(windows)]
+            cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW for captured shell output.
             // Do not create a file descriptor for stdin because otherwise some
             // commands may hang forever waiting for input. For example, ripgrep has
             // a heuristic where it may try to read from stdin as explained here:
@@ -135,3 +137,7 @@ pub(crate) async fn spawn_child_async(request: SpawnChildRequest<'_>) -> std::io
 
     cmd.kill_on_drop(true).spawn()
 }
+
+#[cfg(all(test, windows))]
+#[path = "spawn_tests.rs"]
+mod tests;

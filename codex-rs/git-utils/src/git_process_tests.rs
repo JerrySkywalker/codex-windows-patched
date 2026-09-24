@@ -6,6 +6,127 @@ use std::process::Stdio;
 use std::time::Duration;
 use tokio::process::Command;
 
+#[cfg(windows)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum JobFailure {
+    Create,
+    SuspendedSpawn,
+}
+
+#[cfg(windows)]
+thread_local! {
+    static JOB_FAILURE: std::cell::Cell<Option<JobFailure>> = const { std::cell::Cell::new(None) };
+}
+
+#[cfg(windows)]
+pub(super) fn inject_job_failure(
+    job: std::io::Result<super::JobObject>,
+    command: &mut Command,
+) -> std::io::Result<super::JobObject> {
+    match JOB_FAILURE.take() {
+        None => job,
+        Some(failure) => {
+            if failure == JobFailure::SuspendedSpawn {
+                let job = job?;
+                job.prepare_suspended_spawn_with_flags(command, super::CREATE_NO_WINDOW);
+                // Reproduce failure after creation, before assignment/resume. Drop
+                // kills the suspended child and leaves the command flags intact.
+                drop(command.spawn()?);
+            }
+            Err(std::io::Error::other(
+                "injected Git job containment failure",
+            ))
+        }
+    }
+}
+
+#[cfg(windows)]
+#[tokio::test]
+async fn background_git_fallback_preserves_no_window_and_runs() -> anyhow::Result<()> {
+    if std::env::var_os("CODEX_TEST_BACKGROUND_CHILD").is_none() {
+        let output = Command::new(std::env::current_exe()?)
+            .args([
+                "--exact",
+                "git_process::tests::background_git_fallback_preserves_no_window_and_runs",
+                "--nocapture",
+            ])
+            .env("CODEX_TEST_BACKGROUND_CHILD", "1")
+            .creation_flags(0x0000_0008)
+            .output()
+            .await?;
+        assert!(
+            output.status.success() && String::from_utf8_lossy(&output.stdout).contains("1 passed"),
+            "{output:?}"
+        );
+        return Ok(());
+    }
+    for failure in [JobFailure::Create, JobFailure::SuspendedSpawn] {
+        JOB_FAILURE.set(Some(failure));
+        assert_background_git_spawn_preserves_stdio_without_a_console().await?;
+        assert_eq!(JOB_FAILURE.get(), None, "injection must be consumed");
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+#[tokio::test]
+async fn background_git_spawn_preserves_stdio_without_a_console() -> anyhow::Result<()> {
+    assert_background_git_spawn_preserves_stdio_without_a_console().await
+}
+
+#[cfg(windows)]
+async fn assert_background_git_spawn_preserves_stdio_without_a_console() -> anyhow::Result<()> {
+    if std::env::var_os("CODEX_TEST_BACKGROUND_CHILD").is_none() {
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        let output = Command::new(std::env::current_exe()?)
+            .args([
+                "--exact",
+                "git_process::tests::background_git_spawn_preserves_stdio_without_a_console",
+                "--nocapture",
+            ])
+            .env("CODEX_TEST_BACKGROUND_CHILD", "1")
+            .creation_flags(DETACHED_PROCESS)
+            .output()
+            .await?;
+        assert!(
+            output.status.success() && String::from_utf8_lossy(&output.stdout).contains("1 passed"),
+            "detached test did not pass exactly one test: {output:?}"
+        );
+        return Ok(());
+    }
+    let mut command = Command::new("powershell.exe");
+    command.args([
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        r#"Add-Type -Name Probe -Namespace CodexGitTest -MemberDefinition '
+            [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+            public static extern System.IntPtr GetConsoleWindow();
+        ';
+        [Console]::Out.Write('console={0};stdin={1}',
+            [CodexGitTest.Probe]::GetConsoleWindow().ToInt64(), [Console]::In.Read());
+        [Console]::Error.Write('captured stderr'); exit 23"#,
+    ]);
+    let (child, process_tree) = spawn_git_command(&mut command).expect("spawn Git wrapper");
+    let output =
+        wait_for_git_command_with_timeout_output(child, process_tree, Duration::from_secs(30))
+            .await
+            .expect("Git wrapper output");
+    assert_eq!(
+        (
+            output.status.code(),
+            String::from_utf8(output.stdout)?,
+            String::from_utf8(output.stderr)?
+        ),
+        (
+            Some(23),
+            "console=0;stdin=-1".to_owned(),
+            "captured stderr".to_owned()
+        )
+    );
+    Ok(())
+}
+
 #[derive(Clone, Copy)]
 enum GitWrapperLifetime {
     WaitForChild,

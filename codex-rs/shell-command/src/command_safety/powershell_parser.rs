@@ -126,6 +126,11 @@ impl PowershellParserProcess {
             .stdout(Stdio::piped())
             .stderr(Stdio::null());
         codex_protocol::shell_environment::scrub_non_inheritable_env_vars(&mut command);
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+        }
         let mut child = command.spawn()?;
         let stdin = match take_child_stdin(&mut child) {
             Ok(stdin) => stdin,
@@ -185,6 +190,10 @@ impl PowershellParserProcess {
         Ok(response.into_outcome())
     }
 }
+
+#[cfg(all(test, windows))]
+#[path = "powershell_parser_presentation_tests.rs"]
+mod windows_presentation_tests;
 
 impl Drop for PowershellParserProcess {
     fn drop(&mut self) {

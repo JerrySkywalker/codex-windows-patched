@@ -11,6 +11,10 @@ mod status;
 mod trust;
 mod worktree;
 
+#[cfg(all(test, windows))]
+#[path = "windows_presentation_tests.rs"]
+mod windows_presentation_tests;
+
 /// Git configuration that rejects implicitly discovered bare repositories while
 /// preserving repositories selected explicitly through `GIT_DIR` or `--git-dir`.
 pub const SAFE_BARE_REPOSITORY_CONFIG: &str = "safe.bareRepository=explicit";

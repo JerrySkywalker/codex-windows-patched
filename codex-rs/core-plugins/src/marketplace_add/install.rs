@@ -120,6 +120,7 @@ fn run_git(args: &[&str], cwd: Option<&Path>) -> Result<(), MarketplaceAddError>
         command.current_dir(cwd);
     }
 
+    crate::git_policy::configure_background_git(&mut command);
     let output = command.output().map_err(|err| {
         MarketplaceAddError::Internal(format!("failed to run git {}: {err}", args.join(" ")))
     })?;
@@ -137,3 +138,7 @@ fn run_git(args: &[&str], cwd: Option<&Path>) -> Result<(), MarketplaceAddError>
         stderr.trim()
     )))
 }
+
+#[cfg(all(test, windows))]
+#[path = "install_windows_tests.rs"]
+mod windows_tests;

@@ -183,6 +183,9 @@ async fn spawn_process_with_stdin_mode(
     command.stderr(Stdio::piped());
 
     #[cfg(windows)]
+    command.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
+
+    #[cfg(windows)]
     let job = crate::win::JobObject::create().map(Arc::new);
     let mut child = command.spawn()?;
     #[cfg(windows)]

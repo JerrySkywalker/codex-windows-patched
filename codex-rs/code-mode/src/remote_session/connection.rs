@@ -163,6 +163,8 @@ impl Connection {
             .stderr(Stdio::piped())
             .kill_on_drop(true);
         scrub_non_inheritable_env_vars(command.as_std_mut());
+        #[cfg(windows)]
+        command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW for background host IPC.
         let mut child = command.spawn().map_err(|error| ConnectionError::Spawn {
             host_program: host_program.to_path_buf(),
             error,

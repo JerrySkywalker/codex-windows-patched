@@ -42,12 +42,19 @@ pub(super) fn copy(text: &str) -> Result<(), String> {
         |client| command_output(&executable, &path, ["show-messages", "-T", "-t", client]),
     )?;
 
-    let mut child = std::process::Command::new(&executable)
+    let mut command = std::process::Command::new(&executable);
+    command
         .env("PATH", &path)
         .args(["load-buffer", "-w", "-t", &client, "-"])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    let mut child = command
         .spawn()
         .map_err(|e| format!("failed to spawn tmux: {e}"))?;
 
@@ -124,10 +131,17 @@ fn command_output<const N: usize>(
     path: &OsStr,
     args: [&str; N],
 ) -> Result<String, String> {
-    let output = std::process::Command::new(executable)
+    let mut command = std::process::Command::new(executable);
+    command
         .env("PATH", path)
         .args(args)
-        .stdin(std::process::Stdio::null())
+        .stdin(std::process::Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    let output = command
         .output()
         .map_err(|e| format!("failed to spawn tmux: {e}"))?;
 

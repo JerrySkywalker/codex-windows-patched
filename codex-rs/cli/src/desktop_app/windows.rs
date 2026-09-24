@@ -38,6 +38,7 @@ async fn codex_app_is_installed() -> anyhow::Result<bool> {
         .arg(
             "Get-StartApps | Where-Object AppID -Like 'OpenAI.Codex_*!App' | Select-Object -First 1 -ExpandProperty AppID",
         )
+        .creation_flags(0x0800_0000) // CREATE_NO_WINDOW for installed-app query.
         .output()
         .await
         .context("failed to invoke `powershell.exe`")?;

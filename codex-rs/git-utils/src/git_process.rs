@@ -11,6 +11,18 @@ use tokio::process::Child;
 use tokio::process::Command;
 use tokio::time::timeout;
 
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+pub(crate) fn git_output(command: &mut std::process::Command) -> std::io::Result<Output> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    command.output()
+}
+
 struct KillGitProcessTreeOnDrop {
     #[cfg(unix)]
     process_id: u32,
@@ -41,13 +53,18 @@ fn spawn_git_command(command: &mut Command) -> Option<(Child, KillGitProcessTree
         .stderr(Stdio::piped());
 
     #[cfg(windows)]
-    let (child, job) = match JobObject::create()
-        .and_then(|job| job.spawn_contained(command).map(|child| (child, job)))
-    {
+    let job = JobObject::create();
+    #[cfg(all(test, windows))]
+    let job = tests::inject_job_failure(job, command);
+    #[cfg(windows)]
+    let (child, job) = match job.and_then(|job| {
+        job.spawn_contained_with_flags(command, CREATE_NO_WINDOW)
+            .map(|child| (child, job))
+    }) {
         Ok((child, job)) => (child, Some(job)),
         Err(_) => {
             // A failed contained spawn leaves CREATE_SUSPENDED on the command.
-            command.creation_flags(0);
+            command.creation_flags(CREATE_NO_WINDOW);
             (command.spawn().ok()?, None)
         }
     };

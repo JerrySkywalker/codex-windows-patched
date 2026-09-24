@@ -343,6 +343,8 @@ async fn probe(command: &mut Command, budget: Duration) -> ProbeResult {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .kill_on_drop(/*kill_on_drop*/ true);
+    #[cfg(windows)]
+    command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
     let Ok(mut child) = command.spawn() else {
         return ProbeResult::Failed;
     };

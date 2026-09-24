@@ -462,7 +462,7 @@ async fn run_helper(command: &str, cwd: &Path) -> Result<HeaderMap> {
         let job = codex_utils_pty::JobObject::create_without_breakaway()
             .map_err(|error| anyhow!("MCP HTTP headers helper containment failed: {error}"))?;
         let child = job
-            .spawn_contained(&mut process)
+            .spawn_contained_with_flags(&mut process, 0x0800_0000) // CREATE_NO_WINDOW
             .map_err(|error| anyhow!("MCP HTTP headers helper failed to start: {error}"))?;
         (child, job)
     };
@@ -568,3 +568,7 @@ fn parse_helper_output(stdout: Vec<u8>) -> Result<HeaderMap> {
 #[cfg(test)]
 #[path = "http_headers_tests.rs"]
 mod tests;
+
+#[cfg(all(test, windows))]
+#[path = "http_headers_windows_tests.rs"]
+mod windows_tests;

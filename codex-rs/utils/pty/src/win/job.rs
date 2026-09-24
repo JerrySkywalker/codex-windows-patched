@@ -123,7 +123,14 @@ impl JobObject {
 
     /// Prevents a child from running before it can be assigned to this job.
     pub fn prepare_suspended_spawn(&self, command: &mut Command) {
-        command.creation_flags(CREATE_SUSPENDED).kill_on_drop(true);
+        self.prepare_suspended_spawn_with_flags(command, /*creation_flags*/ 0);
+    }
+
+    /// Prepares suspended creation while preserving caller-selected presentation flags.
+    pub fn prepare_suspended_spawn_with_flags(&self, command: &mut Command, creation_flags: u32) {
+        command
+            .creation_flags(CREATE_SUSPENDED | creation_flags)
+            .kill_on_drop(true);
     }
 
     /// Assigns and resumes a suspended child, returning whether assignment succeeded.
@@ -167,7 +174,16 @@ impl JobObject {
 
     /// Starts a process only after assigning it to this Job Object.
     pub fn spawn_contained(&self, command: &mut Command) -> io::Result<Child> {
-        self.prepare_suspended_spawn(command);
+        self.spawn_contained_with_flags(command, /*creation_flags*/ 0)
+    }
+
+    /// Starts a contained child with additional Windows process creation flags.
+    pub fn spawn_contained_with_flags(
+        &self,
+        command: &mut Command,
+        creation_flags: u32,
+    ) -> io::Result<Child> {
+        self.prepare_suspended_spawn_with_flags(command, creation_flags);
         let child = command.spawn()?;
         let process_handle = child
             .raw_handle()

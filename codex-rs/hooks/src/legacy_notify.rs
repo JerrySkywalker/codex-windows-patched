@@ -63,6 +63,8 @@ pub(crate) fn notify_hook(argv: Vec<String>, environment: Arc<Vec<(OsString, OsS
                     .stdout(Stdio::null())
                     .stderr(Stdio::null());
 
+                #[cfg(windows)]
+                command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
                 match command.spawn() {
                     Ok(_) => HookResult::Success,
                     Err(err) => HookResult::FailedContinue(err.into()),
@@ -71,6 +73,10 @@ pub(crate) fn notify_hook(argv: Vec<String>, environment: Arc<Vec<(OsString, OsS
         }),
     }
 }
+
+#[cfg(all(test, windows))]
+#[path = "legacy_notify_windows_tests.rs"]
+mod windows_tests;
 
 #[cfg(test)]
 mod tests {

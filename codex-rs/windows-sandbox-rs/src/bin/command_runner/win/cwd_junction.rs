@@ -7,6 +7,7 @@ use std::os::windows::process::CommandExt as _;
 use std::path::Path;
 use std::path::PathBuf;
 use windows_sys::Win32::Storage::FileSystem::FILE_ATTRIBUTE_REPARSE_POINT;
+use windows_sys::Win32::System::Threading::CREATE_NO_WINDOW;
 
 fn junction_name_for_path(path: &Path) -> String {
     let mut hasher = DefaultHasher::new();
@@ -106,6 +107,7 @@ pub fn create_cwd_junction(requested_cwd: &Path, log_dir: Option<&Path>) -> Opti
         .raw_arg("/J")
         .raw_arg(&link_quoted)
         .raw_arg(&target_quoted)
+        .creation_flags(CREATE_NO_WINDOW)
         .output()
     {
         Ok(output) => output,
@@ -138,3 +140,7 @@ pub fn create_cwd_junction(requested_cwd: &Path, log_dir: Option<&Path>) -> Opti
     );
     None
 }
+
+#[cfg(test)]
+#[path = "cwd_junction_tests.rs"]
+mod tests;

@@ -83,6 +83,7 @@ async fn query_channel(wevtutil: &Path, channel: Channel) -> Option<Vec<Evidence
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .kill_on_drop(true)
+        .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
         .spawn()
         .ok()?;
     let mut output = Vec::new();

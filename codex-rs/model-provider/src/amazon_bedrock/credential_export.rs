@@ -179,6 +179,9 @@ impl AwsCredentialExport {
             .stderr(Stdio::null())
             .kill_on_drop(true);
 
+        #[cfg(windows)]
+        command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW for data export.
+
         let mut child = command.spawn().map_err(|error| {
             io::Error::new(
                 error.kind(),

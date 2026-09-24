@@ -131,11 +131,13 @@ fn read_windows_vscode_detection() -> VscodeDetection {
     read_windows_vscode_detection_with_timeout(
         || {
             let executable = codex_utils_path::system_executable("cmd.exe")?;
+            use std::os::windows::process::CommandExt;
             std::process::Command::new(executable)
                 .args(["/d", "/s", "/c", "set TERM_PROGRAM"])
                 .stdin(std::process::Stdio::null())
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::null())
+                .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
                 .spawn()
                 .ok()
         },
